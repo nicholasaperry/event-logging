@@ -11,7 +11,17 @@ func ConnectToDB() (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.AutoMigrate(&Event{})
+
+	if err := db.AutoMigrate(&Device{}, &Event{}); err != nil {
+		return nil, err
+	}
+
+	SeedDevices(db)
+
+	if err := db.Exec("TRUNCATE TABLE events RESTART IDENTITY").Error; err != nil {
+		return nil, err
+	}
+
 	println("Connected to Postgres successfully!")
 	return db, nil
 }

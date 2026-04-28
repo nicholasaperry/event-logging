@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -14,6 +15,7 @@ import (
 )
 
 func main() {
+	start := time.Now()
 	_, err := models.ConnectToDB()
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
@@ -33,35 +35,46 @@ func main() {
 	defer client.Disconnect(500)
 	log.Println("Connected to MQTT broker")
 
-	for i := 0; i < 1000; i++ {
-		ev := models.Event{
-			DeviceID:  models.DeviceIDs[rand.Intn(len(models.DeviceIDs))],
-			Timestamp: time.Now().UnixMilli(),
-			EventType: models.EventTypes[rand.Intn(len(models.EventTypes))],
-			EventData: datatypes.NewJSONType(models.DeviceMetric{
-				Value: rand.Float64() * 100,
-				Unit:  "celsius",
-			}),
-		}
+	wg := sync.WaitGroup{}
+	ch := make(chan struct{}, 1000)
+	for i := 0; i < 100000; i++ {
+		ch <- struct{}{}
+		wg.Add(1)
 
-		payload, err := json.Marshal(ev)
-		if err != nil {
-			log.Printf("marshal error: %v", err)
-			continue
-		}
+		go func() {
+			defer wg.Done()
+			defer func() { <-ch }()
 
-		topic := fmt.Sprintf("devices/%s/events", ev.DeviceID)
-		tok := client.Publish(topic, 1, false, payload)
-		if !tok.WaitTimeout(2*time.Second) || tok.Error() != nil {
-			log.Printf("publish %d failed: %v", i, tok.Error())
-			continue
-		}
+			ev := models.Event{
+				DeviceID:  models.DeviceIDs[rand.Intn(len(models.DeviceIDs))],
+				Timestamp: time.Now().UnixMilli(),
+				EventType: models.EventTypes[rand.Intn(len(models.EventTypes))],
+				EventData: datatypes.NewJSONType(models.DeviceMetric{
+					Value: rand.Float64() * 100,
+					Unit:  "celsius",
+				}),
+			}
 
-		if i%100 == 0 {
-			log.Printf("published %d/1000 → topic=%s", i, topic)
-		}
+			payload, err := json.Marshal(ev)
+			if err != nil {
+				log.Printf("marshal error: %v", err)
+				return
+			}
+
+			topic := fmt.Sprintf("devices/%s/events", ev.DeviceID)
+			tok := client.Publish(topic, 1, false, payload)
+			if !tok.WaitTimeout(2*time.Second) || tok.Error() != nil {
+				log.Printf("publish %d failed: %v", i, tok.Error())
+				return
+			}
+
+			if i%100 == 0 {
+				log.Printf("published %d/1000 → topic=%s", i, topic)
+			}
+		}()
 	}
 
-	log.Println("Done — 1000 events published")
+	wg.Wait()
+	log.Printf("Done — 1000 events published in %s", time.Since(start))
 
 }
