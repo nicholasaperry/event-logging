@@ -21,7 +21,6 @@ func ConsumeKafkaMessage(ctx context.Context, db *gorm.DB, payload []byte) error
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return err
 	}
-	println(event.DeviceID)
 	// if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 	// 	if err := tx.Create(&event).Error; err != nil {
 	// 		return err

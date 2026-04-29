@@ -55,7 +55,6 @@ func main() {
 				workers <- struct{}{}
 				wg.Add(1)
 				go func() {
-					println("firing goroutine")
 					defer wg.Done()
 					defer func() { <-workers }()
 					worker.ConsumeKafkaMessage(ctx, db, record.Value)
@@ -65,13 +64,13 @@ func main() {
 			})
 			wg.Wait()
 			consumer.CommitMarkedOffsets(ctx)
-			println("processed ", counter.Load(), " messages")
 		}
 	})
 
 	<-ctx.Done()
-	consumer.Close()
 	if err := g.Wait(); err != nil {
 		log.Fatalf("error: %v", err)
 	}
+	consumer.Close()
+	log.Printf("processed %d messages", counter.Load())
 }

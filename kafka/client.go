@@ -2,13 +2,9 @@ package kafka
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"os"
 
 	"github.com/twmb/franz-go/pkg/kadm"
 	"github.com/twmb/franz-go/pkg/kgo"
-	"github.com/twmb/franz-go/plugin/kslog"
 )
 
 type Producer interface {
@@ -24,20 +20,20 @@ func (p *KafkaProducer) Publish(ctx context.Context, deviceID string, message []
 	record := &kgo.Record{Topic: p.topic, Value: message, Key: []byte(deviceID)}
 	errorCh := make(chan error, 1)
 	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
-		errorCh <- errors.New("error producing message")
+		errorCh <- err
 	})
 	return <-errorCh
 }
 
 func NewConsumer(ctx context.Context, topic string) (*kgo.Client, error) {
-	sl := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	// sl := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	seeds := []string{"localhost:9092"}
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(seeds...),
 		kgo.WithContext(ctx),
 		kgo.ConsumeTopics(topic),
 		kgo.ConsumerGroup("event-logging"),
-		kgo.WithLogger(kslog.New(sl)),
+		// kgo.WithLogger(kslog.New(sl)),
 		kgo.DisableAutoCommit(),
 	)
 	if err != nil {
@@ -47,11 +43,11 @@ func NewConsumer(ctx context.Context, topic string) (*kgo.Client, error) {
 }
 
 func NewProducer(ctx context.Context, topic string) (*KafkaProducer, error) {
-	sl := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	// sl := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	seeds := []string{"localhost:9092"}
 	cl, err := kgo.NewClient(
 		kgo.WithContext(ctx),
-		kgo.WithLogger(kslog.New(sl)),
+		// kgo.WithLogger(kslog.New(sl)),
 		kgo.SeedBrokers(seeds...),
 	)
 	if err != nil {

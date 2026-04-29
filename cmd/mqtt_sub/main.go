@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -24,6 +25,9 @@ var (
 )
 
 func main() {
+	start := time.Now()
+	var totalMessages atomic.Int64
+	totalMessages.Store(0)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -75,7 +79,10 @@ func main() {
 					if !ok {
 						return errors.New("channel closed")
 					}
-					worker.BridgeMqttToKafka(ctx, i, db, msg, producer)
+					if err := worker.BridgeMqttToKafka(ctx, i, db, msg, producer); err != nil {
+						log.Printf("error: %v", err)
+					}
+					totalMessages.Add(1)
 				case <-ctx.Done():
 					return ctx.Err()
 				}
@@ -84,6 +91,7 @@ func main() {
 	}
 
 	<-ctx.Done()
+	log.Printf("processed %d messages in %s", totalMessages.Load(), time.Since(start))
 	client.Disconnect(500)
 	close(msgs)
 	if err := g.Wait(); err != nil {
