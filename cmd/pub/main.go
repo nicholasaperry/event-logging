@@ -10,13 +10,15 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/nicholasaperry/event-logging/constants"
+	"github.com/nicholasaperry/event-logging/db"
 	"github.com/nicholasaperry/event-logging/models"
 	"gorm.io/datatypes"
 )
 
 func main() {
 	start := time.Now()
-	_, err := models.ConnectToDB()
+	_, err := db.Connect()
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
 	}
@@ -46,9 +48,9 @@ func main() {
 			defer func() { <-ch }()
 
 			ev := models.Event{
-				DeviceID:  models.DeviceIDs[rand.Intn(len(models.DeviceIDs))],
+				DeviceID:  constants.DeviceIDs[rand.Intn(len(constants.DeviceIDs))],
 				Timestamp: time.Now().UnixMilli(),
-				EventType: models.EventTypes[rand.Intn(len(models.EventTypes))],
+				EventType: constants.EventTypes[rand.Intn(len(constants.EventTypes))],
 				EventData: datatypes.NewJSONType(models.DeviceMetric{
 					Value: rand.Float64() * 100,
 					Unit:  "celsius",

@@ -11,14 +11,16 @@ import (
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
-	"github.com/nicholasaperry/event-logging/models"
+	"github.com/nicholasaperry/event-logging/constants"
+	"github.com/nicholasaperry/event-logging/db"
+	"github.com/nicholasaperry/event-logging/kafka"
 	"github.com/nicholasaperry/event-logging/worker"
 	"golang.org/x/sync/errgroup"
 )
 
 var (
-	bufferSize = 10000
-	workers    = 10
+	bufferSize = 100000
+	workers    = 10000
 )
 
 func main() {
@@ -27,7 +29,7 @@ func main() {
 
 	msgs := make(chan mqtt.Message, bufferSize)
 
-	db, err := models.ConnectToDB()
+	db, err := db.Connect()
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
 	}
@@ -36,7 +38,7 @@ func main() {
 		select {
 		case msgs <- msg:
 		default:
-			log.Printf("WARN: dropping message, channel full")
+			// log.Printf("WARN: dropping message, channel full")
 		}
 	}
 
@@ -57,6 +59,11 @@ func main() {
 	if !tok.WaitTimeout(10*time.Second) || tok.Error() != nil {
 		log.Fatalf("connect failed: %v", tok.Error())
 	}
+
+	producer, err := kafka.NewProducer(ctx, constants.DeviceEventsTopic)
+	if err != nil {
+		log.Fatalf("failed to create producer: %v", err)
+	}
 	log.Println("Connected to MQTT broker")
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -68,7 +75,7 @@ func main() {
 					if !ok {
 						return errors.New("channel closed")
 					}
-					worker.ProcessMessage(ctx, i, db, msg)
+					worker.BridgeMqttToKafka(ctx, i, db, msg, producer)
 				case <-ctx.Done():
 					return ctx.Err()
 				}

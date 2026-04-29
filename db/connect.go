@@ -1,22 +1,25 @@
-package models
+package db
 
 import (
+	"github.com/nicholasaperry/event-logging/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-func ConnectToDB() (*gorm.DB, error) {
-	dsn := "host=localhost user=postgres password=swag123@@ dbname=zebra port=5432 sslmode=disable"
+func Connect() (*gorm.DB, error) {
+	dsn := "host=localhost user=postgres password=postgres dbname=events port=5432 sslmode=disable"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
 
-	if err := db.AutoMigrate(&Device{}, &Event{}); err != nil {
+	if err := db.AutoMigrate(&models.Device{}, &models.Event{}); err != nil {
 		return nil, err
 	}
 
-	SeedDevices(db)
+	if err := SeedDevices(db); err != nil {
+		return nil, err
+	}
 
 	if err := db.Exec("TRUNCATE TABLE events RESTART IDENTITY").Error; err != nil {
 		return nil, err
