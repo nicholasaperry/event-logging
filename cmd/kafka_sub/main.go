@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 
 	"github.com/nicholasaperry/event-logging/constants"
 	"github.com/nicholasaperry/event-logging/db"
@@ -30,6 +31,10 @@ func main() {
 	if err != nil {
 		panic("failed to connect to database: " + err.Error())
 	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatalf("failed to get sql.DB handle: %v", err)
+	}
 
 	workers := make(chan struct{}, numWorkers)
 
@@ -38,6 +43,27 @@ func main() {
 		log.Fatalf("failed to create consumer: %v", err)
 	}
 	log.Println("Connected to Kafka consumer")
+	go func() {
+		ticker := time.NewTicker(2 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				stats := sqlDB.Stats()
+				log.Printf(
+					"db pool stats: open=%d in_use=%d idle=%d wait_count=%d wait_duration=%s max_open=%d",
+					stats.OpenConnections,
+					stats.InUse,
+					stats.Idle,
+					stats.WaitCount,
+					stats.WaitDuration,
+					stats.MaxOpenConnections,
+				)
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 	var counter atomic.Int64
 	counter.Store(0)
 	var wg sync.WaitGroup

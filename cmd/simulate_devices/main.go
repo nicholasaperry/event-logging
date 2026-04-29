@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -17,6 +18,8 @@ import (
 )
 
 func main() {
+	var published atomic.Int64
+	published.Store(0)
 	start := time.Now()
 	_, err := db.Connect()
 	if err != nil {
@@ -69,14 +72,11 @@ func main() {
 				log.Printf("publish %d failed: %v", i, tok.Error())
 				return
 			}
-
-			if i%100 == 0 {
-				log.Printf("published %d/1000 → topic=%s", i, topic)
-			}
+			published.Add(1)
 		}()
 	}
 
 	wg.Wait()
-	log.Printf("Done — 1000 events published in %s", time.Since(start))
+	log.Printf("Done — %d events published in %s", published.Load(), time.Since(start))
 
 }

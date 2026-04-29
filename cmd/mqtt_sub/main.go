@@ -21,13 +21,13 @@ import (
 
 var (
 	bufferSize = 10000000
-	workers    = 100000
+	workers    = 10000
 )
 
 func main() {
-	start := time.Now()
-	var totalMessages atomic.Int64
-	totalMessages.Store(0)
+	var published, failed atomic.Int64
+	published.Store(0)
+	failed.Store(0)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -77,24 +77,32 @@ func main() {
 				select {
 				case msg, ok := <-msgs:
 					if !ok {
-						return errors.New("channel closed")
+						return nil
+					}
+					if ctx.Err() != nil {
+						return nil
 					}
 					if err := worker.BridgeMqttToKafka(ctx, i, db, msg, producer); err != nil {
+						if errors.Is(err, context.Canceled) {
+							return nil
+						}
+						failed.Add(1)
 						log.Printf("error: %v", err)
+					} else {
+						published.Add(1)
 					}
-					totalMessages.Add(1)
 				case <-ctx.Done():
-					return ctx.Err()
+					return nil
 				}
 			}
 		})
 	}
 
 	<-ctx.Done()
-	log.Printf("processed %d messages in %s", totalMessages.Load(), time.Since(start))
+	log.Printf("published=%d failed=%d", published.Load(), failed.Load())
 	client.Disconnect(500)
 	close(msgs)
-	if err := g.Wait(); err != nil {
+	if err := g.Wait(); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("error: %v", err)
 	}
 }

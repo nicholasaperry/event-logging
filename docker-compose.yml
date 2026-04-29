@@ -26,11 +26,12 @@ services:
     entrypoint: ["/bin/bash", "-c"]
     command: >
       "
-      for i in {1..30}; do
-        kafka-topics.sh --bootstrap-server kafka:29092 --list && break;
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --list >/dev/null 2>&1; do
         sleep 2;
       done;
-      kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic devices --partitions 10 --replication-factor 1;
+      until /opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:29092 --create --if-not-exists --topic devices --partitions 10 --replication-factor 1; do
+        sleep 2;
+      done;
       "
     restart: "no"
 
@@ -60,6 +61,7 @@ services:
   postgres:
     image: postgres:16
     container_name: postgres
+    command: ["postgres", "-c", "max_connections=${POSTGRES_MAX_CONNECTIONS:-200}"]
     ports:
       - "5432:5432"
     environment:

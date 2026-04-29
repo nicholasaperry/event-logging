@@ -1,2 +1,11 @@
 .cursor/
 .DS_Store
+
+# Go binaries / build artifacts
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+*_sub

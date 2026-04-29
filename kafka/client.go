@@ -22,7 +22,12 @@ func (p *KafkaProducer) Publish(ctx context.Context, deviceID string, message []
 	p.client.Produce(ctx, record, func(r *kgo.Record, err error) {
 		errorCh <- err
 	})
-	return <-errorCh
+	select {
+	case err := <-errorCh:
+		return err // callback fired, error bubbled correctly
+	case <-ctx.Done():
+		return ctx.Err() // ctx cancelled, don't hang
+	}
 }
 
 func NewConsumer(ctx context.Context, topic string) (*kgo.Client, error) {

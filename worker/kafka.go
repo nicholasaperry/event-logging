@@ -21,20 +21,20 @@ func ConsumeKafkaMessage(ctx context.Context, db *gorm.DB, payload []byte) error
 	if err := json.Unmarshal(payload, &event); err != nil {
 		return err
 	}
-	// if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-	// 	if err := tx.Create(&event).Error; err != nil {
-	// 		return err
-	// 	}
+	if err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(&event).Error; err != nil {
+			return err
+		}
 
-	// 	if err := tx.Model(&models.Device{}).
-	// 		Where("id = ?", event.DeviceID).
-	// 		Update("last_seen", event.Timestamp).
-	// 		Error; err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return err
-	// }
+		if err := tx.Model(&models.Device{}).
+			Where("id = ?", event.DeviceID).
+			Update("last_seen", event.Timestamp).
+			Error; err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
 	return nil
 }
