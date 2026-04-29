@@ -36,7 +36,7 @@ func NewConsumer(ctx context.Context, topic string) (*kgo.Client, error) {
 		kgo.SeedBrokers(seeds...),
 		kgo.WithContext(ctx),
 		kgo.ConsumeTopics(topic),
-		kgo.ConsumerGroup("clitest"),
+		kgo.ConsumerGroup("event-logging"),
 		kgo.WithLogger(kslog.New(sl)),
 		kgo.DisableAutoCommit(),
 	)

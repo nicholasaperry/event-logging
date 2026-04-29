@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	bufferSize = 100000
-	workers    = 10000
+	bufferSize = 10000000
+	workers    = 100000
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 		select {
 		case msgs <- msg:
 		default:
-			// log.Printf("WARN: dropping message, channel full")
+			log.Printf("WARN: dropping message, channel full")
 		}
 	}
 
